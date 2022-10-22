@@ -60,10 +60,10 @@ fn det_delaunay(
 //	assert( fabs( qradius - SquareLength(out_center,p2) ) < 1.0e-10*qradius );
 
     let tol = 1.0e-20;
-    if qdistance > qradius * (1.0 + tol) { return 2; }    // outside the circumcircle
+    return if qdistance > qradius * (1.0 + tol) { 2 }    // outside the circumcircle
     else {
-        if qdistance < qradius * (1.0 - tol) { return 0; }    // inside the circumcircle
-        else { return 1; }    // on the circumcircle
+        if qdistance < qradius * (1.0 - tol) { 0 }    // inside the circumcircle
+        else { 1 }    // on the circumcircle
     }
 }
 
@@ -102,7 +102,7 @@ fn make_super_triangle(
     tri_vtx.resize(1, DynamicTriangle { v: [0; 3], s: [0; 3] });
     let mut tri = &mut tri_vtx[0];
     tri.v = [npo + 0, npo + 1, npo + 2];
-    tri.s = [std::usize::MAX;3];
+    tri.s = [usize::MAX;3];
 }
 
 fn add_points_to_mesh(
@@ -118,10 +118,10 @@ fn add_points_to_mesh(
     };
 
     assert_eq!(vtx_xy.len(), vtx_tri.len());
-    if vtx_tri[ipoin].e != std::usize::MAX { return; } // already added
+    if vtx_tri[ipoin].e != usize::MAX { return; } // already added
     let po_add = vtx_xy[ipoin];
-    let mut itri_in = std::usize::MAX;
-    let mut iedge = std::usize::MAX;
+    let mut itri_in = usize::MAX;
+    let mut iedge = usize::MAX;
     let mut iflg1;
     let mut iflg2;
     for itri in 0..tri_vtx.len() {
@@ -151,7 +151,7 @@ fn add_points_to_mesh(
             let ipo_e0 = tri_vtx[itri].v[(ied0 + 1) % 3];
             let ipo_e1 = tri_vtx[itri].v[(ied0 + 2) % 3];
             let itri_s = tri_vtx[itri].s[ied0];
-            if itri_s == std::usize::MAX { return; }
+            if itri_s == usize::MAX { return; }
             let jno0 = find_adjacent_edge_index(&tri_vtx[itri], ied0, tri_vtx);
             assert_eq!(tri_vtx[itri_s].v[(jno0 + 2) % 3], ipo_e0);
             assert_eq!(tri_vtx[itri_s].v[(jno0 + 1) % 3], ipo_e1);
@@ -173,11 +173,11 @@ fn add_points_to_mesh(
             break;
         }
     }
-    if itri_in == std::usize::MAX {
+    if itri_in == usize::MAX {
         //std::cout << "super triangle failure " << iflg1 << " " << iflg2 << std::endl;
         panic!();
     }
-    if iedge == std::usize::MAX {
+    if iedge == usize::MAX {
         insert_a_point_inside_an_element(ipoin, itri_in, vtx_tri, tri_vtx);
     } else {
         insert_point_on_elem_edge(ipoin, itri_in, iedge, vtx_tri, tri_vtx);
@@ -192,7 +192,7 @@ fn delaunay_around_point(
     use crate::topology::{find_adjacent_edge_index, flip_edge, move_ccw, move_cw};
     assert_eq!(vtx_xy.len(), vtx_tri.len());
     assert!(ipo0 < vtx_tri.len());
-    if vtx_tri[ipo0].e == std::usize::MAX { return; }
+    if vtx_tri[ipo0].e == usize::MAX { return; }
 
     let mut itri0 = vtx_tri[ipo0].e;
     let mut ino0 = vtx_tri[ipo0].d;
@@ -219,7 +219,7 @@ fn delaunay_around_point(
                 continue; // need to check the fliped element
             }
         }
-        if !move_ccw(&mut itri0, &mut ino0, std::usize::MAX, tri_vtx) {
+        if !move_ccw(&mut itri0, &mut ino0, usize::MAX, tri_vtx) {
             flag_is_wall = true;
             break;
         }
@@ -252,7 +252,7 @@ fn delaunay_around_point(
                 continue;
             }
         }
-        if !move_cw(&mut itri0, &mut ino0, std::usize::MAX, tri_vtx) { return; }
+        if !move_cw(&mut itri0, &mut ino0, usize::MAX, tri_vtx) { return; }
     }
 }
 
@@ -261,7 +261,7 @@ pub fn meshing_initialize(
     vtx_tri: &mut Vec<DynamicVertex>,
     vtx_xy: &mut Vec<nalgebra::Vector2<f32>>) {
     vtx_tri.clear();
-    vtx_tri.resize(vtx_xy.len(), DynamicVertex { e: std::usize::MAX, d: 0 });
+    vtx_tri.resize(vtx_xy.len(), DynamicVertex { e: usize::MAX, d: 0 });
     {
         let (vmin, vmax) = bounding_box2::<nalgebra::Vector2<f32>>(vtx_xy);
         make_super_triangle(
@@ -324,7 +324,7 @@ fn find_edge_point_across_edge(
         {
             let inotri2 = (inotri_cur + 1) % 3;
             let itri_nex = tri_vtx[itri_cur].s[inotri2];
-            if itri_nex == std::usize::MAX { break; }
+            if itri_nex == usize::MAX { break; }
             let jnob = find_adjacent_edge_index(&tri_vtx[itri_nex], inotri2, tri_vtx);
             let inotri3 = (jnob + 1) % 3;
             assert!(itri_nex < tri_vtx.len());
@@ -394,14 +394,14 @@ pub fn enforce_edge(
     assert!(ip0 < vtx_tri.len());
     assert!(ip1 < vtx_tri.len());
     loop {
-        let mut itri0: usize = std::usize::MAX;
+        let mut itri0: usize = usize::MAX;
         let mut inotri0: usize = 0;
         let mut inotri1: usize = 0;
         if find_edge_by_looking_around_point(
             &mut itri0, &mut inotri0, &mut inotri1,
             ip0, ip1,
             &vtx_tri, &tri_vtx) { // this edge divide outside and inside
-            assert!(inotri0 != inotri1);
+            assert_ne!(inotri0, inotri1);
             assert!(inotri0 < 3);
             assert!(inotri1 < 3);
             assert_eq!(tri_vtx[itri0].v[inotri0], ip0);
@@ -411,8 +411,8 @@ pub fn enforce_edge(
                 let itri1 = tri_vtx[itri0].s[ied0];
                 let ied1 = find_adjacent_edge_index(&tri_vtx[itri0], ied0, &tri_vtx);
                 assert_eq!(tri_vtx[itri1].s[ied1], itri0);
-                tri_vtx[itri1].s[ied1] = std::usize::MAX;
-                tri_vtx[itri0].s[ied0] = std::usize::MAX;
+                tri_vtx[itri1].s[ied1] = usize::MAX;
+                tri_vtx[itri0].s[ied0] = usize::MAX;
             }
             break;
         } else { // this edge is devided from connection outer triangle
@@ -464,13 +464,13 @@ pub fn delete_unreferenced_points(
     let mut map_po_del = Vec::<usize>::new();
     let mut npo_pos;
     {
-        map_po_del.resize(vtx_tri.len(), std::usize::MAX - 1);
+        map_po_del.resize(vtx_tri.len(), usize::MAX - 1);
         for ipo in point_idxs_to_delete {
-            map_po_del[*ipo] = std::usize::MAX;
+            map_po_del[*ipo] = usize::MAX;
         }
         npo_pos = 0;
         for ipo in 0..vtx_tri.len() {
-            if map_po_del[ipo] == std::usize::MAX {
+            if map_po_del[ipo] == usize::MAX {
                 continue;
             }
             map_po_del[ipo] = npo_pos;
@@ -483,7 +483,7 @@ pub fn delete_unreferenced_points(
         vtx_tri.resize(npo_pos, DynamicVertex { e: 0, d: 0 });
         vtx_xy.resize(npo_pos, Default::default());
         for ipo in 0..map_po_del.len() {
-            if map_po_del[ipo] == std::usize::MAX {
+            if map_po_del[ipo] == usize::MAX {
                 continue;
             }
             let ipo1 = map_po_del[ipo];
@@ -494,7 +494,7 @@ pub fn delete_unreferenced_points(
     for itri in 0..tri_vtx.len() {
         for ifatri in 0..3 {
             let ipo = tri_vtx[itri].v[ifatri];
-            assert!(map_po_del[ipo] != std::usize::MAX);
+            assert_ne!(map_po_del[ipo], usize::MAX);
             tri_vtx[itri].v[ifatri] = map_po_del[ipo];
             vtx_tri[ipo].e = itri;
             vtx_tri[ipo].d = ifatri;
@@ -540,7 +540,7 @@ pub fn meshing_single_connected_shape2(
     }
     {
         let mut aflg = vec!(0; tri_vtx.len());
-        let mut itri0_ker = std::usize::MAX;
+        let mut itri0_ker = usize::MAX;
         let mut iedtri = 0;
         find_edge_by_looking_all_triangles(
             &mut itri0_ker, &mut iedtri,
@@ -577,7 +577,7 @@ fn laplacian_mesh_smoothing_around_point(
         assert!(itri0 < tri_vtx.len() && ino0 < 3 && tri_vtx[itri0].v[ino0] == ipoin);
         vec_delta += vtx_xy[tri_vtx[itri0].v[(ino0 + 1) % 3]];
         ntri_around += 1;
-        if !move_ccw(&mut itri0, &mut ino0, std::usize::MAX, tri_vtx) { return false; }
+        if !move_ccw(&mut itri0, &mut ino0, usize::MAX, tri_vtx) { return false; }
         if itri0 == vtx_tri[ipoin].e { break; }
     }
     vtx_xy[ipoin] = vec_delta / ntri_around as f32;
