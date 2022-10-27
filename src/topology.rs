@@ -1,3 +1,5 @@
+//! topology of dynamic triangle mesh
+
 #[derive(Clone)]
 pub struct DynamicTriangle {
     pub v: [usize; 3],

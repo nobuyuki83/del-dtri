@@ -1,3 +1,5 @@
+//! 2D dynamic mesh editing utility code
+
 use crate::topology::{DynamicTriangle, DynamicVertex};
 
 fn bounding_box2<VEC>(
