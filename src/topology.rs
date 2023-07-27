@@ -12,6 +12,12 @@ pub struct DynamicVertex {
     pub d: usize,
 }
 
+impl Default for DynamicVertex {
+    fn default() -> Self {
+        Self { e: usize::MAX, d: usize::MAX }
+    }
+}
+
 pub fn find_adjacent_edge_index(
     t0: &DynamicTriangle,
     ied0: usize,
@@ -29,10 +35,10 @@ pub fn find_adjacent_edge_index(
 
 
 pub fn assert_dynamic_triangles(
-    tri_vtx: &Vec<DynamicTriangle>) {
-    let ntri = tri_vtx.len();
+    tris: &Vec<DynamicTriangle>) -> bool {
+    let ntri = tris.len();
     for itri in 0..ntri {
-        let tri = &tri_vtx[itri];
+        let tri = &tris[itri];
         if tri.v[0] == usize::MAX {
             assert_eq!(tri.v[1], usize::MAX);
             assert_eq!(tri.v[2], usize::MAX);
@@ -48,54 +54,56 @@ pub fn assert_dynamic_triangles(
             if tri.s[iedtri] == usize::MAX {
                 continue;
             }
-            assert!(tri.s[iedtri] < tri_vtx.len());
+            assert!(tri.s[iedtri] < tris.len());
             let jtri = tri.s[iedtri];
             assert!(jtri < ntri);
-            let jno = find_adjacent_edge_index(&tri_vtx[itri], iedtri, &tri_vtx);
-            assert_eq!(tri_vtx[jtri].s[jno], itri);
-            assert_eq!(tri_vtx[itri].v[(iedtri + 1) % 3], tri_vtx[jtri].v[(jno + 2) % 3]);
-            assert_eq!(tri_vtx[itri].v[(iedtri + 2) % 3], tri_vtx[jtri].v[(jno + 1) % 3]);
+            let jno = find_adjacent_edge_index(&tris[itri], iedtri, &tris);
+            assert_eq!(tris[jtri].s[jno], itri);
+            assert_eq!(tris[itri].v[(iedtri + 1) % 3], tris[jtri].v[(jno + 2) % 3]);
+            assert_eq!(tris[itri].v[(iedtri + 2) % 3], tris[jtri].v[(jno + 1) % 3]);
         }
     }
+    true
 }
 
 pub fn assert_dynamic_triangle_mesh(
-    vtx_tri: &Vec<DynamicVertex>,
-    tri_vtx: &Vec<DynamicTriangle>)
+    vtx2tri: &Vec<DynamicVertex>,
+    tris: &Vec<DynamicTriangle>) -> bool
 {
-    let npo = vtx_tri.len();
-    let ntri = tri_vtx.len();
+    let npo = vtx2tri.len();
+    let ntri = tris.len();
     for itri in 0..ntri {
-        assert!(tri_vtx[itri].v[0] < npo);
-        assert!(tri_vtx[itri].v[0] < npo);
-        assert!(tri_vtx[itri].v[0] < npo);
+        assert!(tris[itri].v[0] < npo);
+        assert!(tris[itri].v[0] < npo);
+        assert!(tris[itri].v[0] < npo);
     }
     for ipoin in 0..npo {
-        let itri0 = vtx_tri[ipoin].e;
-        let inoel0 = vtx_tri[ipoin].d;
+        let itri0 = vtx2tri[ipoin].e;
+        let inoel0 = vtx2tri[ipoin].d;
         if itri0 != usize::MAX {
-            assert!(itri0 < tri_vtx.len() && inoel0 < 3 && tri_vtx[itri0].v[inoel0] == ipoin);
+            assert!(itri0 < tris.len() && inoel0 < 3 && tris[itri0].v[inoel0] == ipoin);
         }
     }
+    true
 }
 
 
 pub fn flip_edge(
     itri_a: usize,
     ied0: usize,
-    vtx_tri: &mut Vec<DynamicVertex>,
-    tri_vtx: &mut Vec<DynamicTriangle>) -> bool {
-    assert!(itri_a < tri_vtx.len() && ied0 < 3);
-    if tri_vtx[itri_a].s[ied0] == usize::MAX { return false; }
+    vtx2tri: &mut Vec<DynamicVertex>,
+    tris: &mut Vec<DynamicTriangle>) -> bool {
+    assert!(itri_a < tris.len() && ied0 < 3);
+    if tris[itri_a].s[ied0] == usize::MAX { return false; }
 
-    let itri_b = tri_vtx[itri_a].s[ied0];
-    assert!(itri_b < tri_vtx.len());
-    let ied1 = find_adjacent_edge_index(&tri_vtx[itri_a], ied0, tri_vtx);
+    let itri_b = tris[itri_a].s[ied0];
+    assert!(itri_b < tris.len());
+    let ied1 = find_adjacent_edge_index(&tris[itri_a], ied0, tris);
     assert!(ied1 < 3);
-    assert_eq!(tri_vtx[itri_b].s[ied1], itri_a);
+    assert_eq!(tris[itri_b].s[ied1], itri_a);
 
-    let old_a = tri_vtx[itri_a].clone();
-    let old_b = tri_vtx[itri_b].clone();
+    let old_a = tris[itri_a].clone();
+    let old_b = tris[itri_b].clone();
 
     let no_a0 = ied0;
     let no_a1 = (ied0 + 1) % 3;
@@ -108,43 +116,43 @@ pub fn flip_edge(
     assert_eq!(old_a.v[no_a1], old_b.v[no_b2]);
     assert_eq!(old_a.v[no_a2], old_b.v[no_b1]);
 
-    vtx_tri[old_a.v[no_a1]].e = itri_a;
-    vtx_tri[old_a.v[no_a1]].d = 0;
-    vtx_tri[old_a.v[no_a0]].e = itri_a;
-    vtx_tri[old_a.v[no_a0]].d = 2;
-    vtx_tri[old_b.v[no_b1]].e = itri_b;
-    vtx_tri[old_b.v[no_b1]].d = 0;
-    vtx_tri[old_b.v[no_b0]].e = itri_b;
-    vtx_tri[old_b.v[no_b0]].d = 2;
+    vtx2tri[old_a.v[no_a1]].e = itri_a;
+    vtx2tri[old_a.v[no_a1]].d = 0;
+    vtx2tri[old_a.v[no_a0]].e = itri_a;
+    vtx2tri[old_a.v[no_a0]].d = 2;
+    vtx2tri[old_b.v[no_b1]].e = itri_b;
+    vtx2tri[old_b.v[no_b1]].d = 0;
+    vtx2tri[old_b.v[no_b0]].e = itri_b;
+    vtx2tri[old_b.v[no_b0]].d = 2;
 
-    tri_vtx[itri_a].v = [old_a.v[no_a1], old_b.v[no_b0], old_a.v[no_a0]];
-    tri_vtx[itri_a].s = [itri_b, old_a.s[no_a2], old_b.s[no_b1]];
+    tris[itri_a].v = [old_a.v[no_a1], old_b.v[no_b0], old_a.v[no_a0]];
+    tris[itri_a].s = [itri_b, old_a.s[no_a2], old_b.s[no_b1]];
     if old_a.s[no_a2] != usize::MAX {
         let jt0 = old_a.s[no_a2];
-        assert!(jt0 < tri_vtx.len() && jt0 != itri_b && jt0 != itri_a);
-        let jno0 = find_adjacent_edge_index(&old_a, no_a2, &tri_vtx);
-        tri_vtx[jt0].s[jno0] = itri_a;
+        assert!(jt0 < tris.len() && jt0 != itri_b && jt0 != itri_a);
+        let jno0 = find_adjacent_edge_index(&old_a, no_a2, &tris);
+        tris[jt0].s[jno0] = itri_a;
     }
     if old_b.s[no_b1] != usize::MAX {
         let jt0 = old_b.s[no_b1];
-        assert!(jt0 < tri_vtx.len() && jt0 != itri_b && jt0 != itri_a);
-        let jno0 = find_adjacent_edge_index(&old_b, no_b1, &tri_vtx);
-        tri_vtx[jt0].s[jno0] = itri_a;
+        assert!(jt0 < tris.len() && jt0 != itri_b && jt0 != itri_a);
+        let jno0 = find_adjacent_edge_index(&old_b, no_b1, &tris);
+        tris[jt0].s[jno0] = itri_a;
     }
 
-    tri_vtx[itri_b].v = [old_b.v[no_b1], old_a.v[no_a0], old_b.v[no_b0]];
-    tri_vtx[itri_b].s = [itri_a, old_b.s[no_b2], old_a.s[no_a1]];
+    tris[itri_b].v = [old_b.v[no_b1], old_a.v[no_a0], old_b.v[no_b0]];
+    tris[itri_b].s = [itri_a, old_b.s[no_b2], old_a.s[no_a1]];
     if old_b.s[no_b2] != usize::MAX {
         let jt0 = old_b.s[no_b2];
-        assert!(jt0 < tri_vtx.len());
-        let jno0 = find_adjacent_edge_index(&old_b, no_b2, &tri_vtx);
-        tri_vtx[jt0].s[jno0] = itri_b;
+        assert!(jt0 < tris.len());
+        let jno0 = find_adjacent_edge_index(&old_b, no_b2, &tris);
+        tris[jt0].s[jno0] = itri_b;
     }
     if old_a.s[no_a1] != usize::MAX {
         let jt0 = old_a.s[no_a1];
-        assert!(jt0 < tri_vtx.len());
-        let jno0 = find_adjacent_edge_index(&old_a, no_a1, &tri_vtx);
-        tri_vtx[jt0].s[jno0] = itri_b;
+        assert!(jt0 < tris.len());
+        let jno0 = find_adjacent_edge_index(&old_a, no_a1, &tris);
+        tris[jt0].s[jno0] = itri_b;
     }
     return true;
 }
@@ -184,87 +192,87 @@ pub fn move_cw(
 }
 
 pub fn insert_a_point_inside_an_element(
-    ipo_ins: usize,
-    itri_ins: usize,
-    vtx_tri: &mut Vec<DynamicVertex>,
-    tri_vtx: &mut Vec<DynamicTriangle>) -> bool
+    idx_vtx_insert: usize,
+    idx_tri_insert: usize,
+    vtx2tri: &mut Vec<DynamicVertex>,
+    tris: &mut Vec<DynamicTriangle>) -> bool
 {
-    assert!(itri_ins < tri_vtx.len());
-    assert!(ipo_ins < vtx_tri.len());
+    assert!(idx_tri_insert < tris.len());
+    assert!(idx_vtx_insert < vtx2tri.len());
 
-    let it_a = itri_ins;
-    let it_b = tri_vtx.len();
-    let it_c = tri_vtx.len() + 1;
+    let it_a = idx_tri_insert;
+    let it_b = tris.len();
+    let it_c = tris.len() + 1;
 
-    tri_vtx.resize(tri_vtx.len() + 2, DynamicTriangle { v: [0; 3], s: [0; 3] });
-    let old = tri_vtx[itri_ins].clone();
+    tris.resize(tris.len() + 2, DynamicTriangle { v: [0; 3], s: [0; 3] });
+    let old = tris[idx_tri_insert].clone();
 
-    vtx_tri[ipo_ins].e = it_a;
-    vtx_tri[ipo_ins].d = 0;
-    vtx_tri[old.v[0]].e = it_b;
-    vtx_tri[old.v[0]].d = 2;
-    vtx_tri[old.v[1]].e = it_c;
-    vtx_tri[old.v[1]].d = 2;
-    vtx_tri[old.v[2]].e = it_a;
-    vtx_tri[old.v[2]].d = 2;
+    vtx2tri[idx_vtx_insert].e = it_a;
+    vtx2tri[idx_vtx_insert].d = 0;
+    vtx2tri[old.v[0]].e = it_b;
+    vtx2tri[old.v[0]].d = 2;
+    vtx2tri[old.v[1]].e = it_c;
+    vtx2tri[old.v[1]].d = 2;
+    vtx2tri[old.v[2]].e = it_a;
+    vtx2tri[old.v[2]].d = 2;
 
-    tri_vtx[it_a].v = [ipo_ins, old.v[1], old.v[2] ];
-    tri_vtx[it_a].s = [old.s[0], it_b, it_c];
+    tris[it_a].v = [idx_vtx_insert, old.v[1], old.v[2]];
+    tris[it_a].s = [old.s[0], it_b, it_c];
     if old.s[0] != usize::MAX {
         let jt0 = old.s[0];
-        assert!(jt0 < tri_vtx.len());
-        let jno0 = find_adjacent_edge_index(&old, 0, &tri_vtx);
-        tri_vtx[jt0].s[jno0] = it_a;
+        assert!(jt0 < tris.len());
+        let jno0 = find_adjacent_edge_index(&old, 0, &tris);
+        tris[jt0].s[jno0] = it_a;
     }
 
-    tri_vtx[it_b].v = [ipo_ins, old.v[2], old.v[0]];
-    tri_vtx[it_b].s = [old.s[1], it_c, it_a];
+    tris[it_b].v = [idx_vtx_insert, old.v[2], old.v[0]];
+    tris[it_b].s = [old.s[1], it_c, it_a];
     if old.s[1] != usize::MAX {
         let jt0 = old.s[1];
-        assert!(jt0 < tri_vtx.len());
-        let jno0 = find_adjacent_edge_index(&old, 1, &tri_vtx);
-        tri_vtx[jt0].s[jno0] = it_b;
+        assert!(jt0 < tris.len());
+        let jno0 = find_adjacent_edge_index(&old, 1, &tris);
+        tris[jt0].s[jno0] = it_b;
     }
 
-    tri_vtx[it_c].v = [ipo_ins, old.v[0], old.v[1]];
-    tri_vtx[it_c].s = [old.s[2], it_a, it_b];
+    tris[it_c].v = [idx_vtx_insert, old.v[0], old.v[1]];
+    tris[it_c].s = [old.s[2], it_a, it_b];
     if old.s[2] != usize::MAX {
         let jt0 = old.s[2];
-        assert!(jt0 < tri_vtx.len());
-        let jno0 = find_adjacent_edge_index(&old, 2, &tri_vtx);
-        tri_vtx[jt0].s[jno0] = it_c;
+        assert!(jt0 < tris.len());
+        let jno0 = find_adjacent_edge_index(&old, 2, &tris);
+        tris[jt0].s[jno0] = it_c;
     }
     return true;
 }
 
 pub fn insert_point_on_elem_edge(
-    ipo_ins: usize,
-    itri_ins: usize,
-    ied_ins: usize,
-    vtx_tri: &mut Vec<DynamicVertex>,
-    tri_vtx: &mut Vec<DynamicTriangle>) -> bool
+    idx_vtx_insert: usize,
+    idx_tri_insert: usize,
+    idx_triedge_insert: usize,
+    vtx2tri: &mut Vec<DynamicVertex>,
+    tris: &mut Vec<DynamicTriangle>) -> bool
 {
-    assert!(itri_ins < tri_vtx.len());
-    assert!(ipo_ins < vtx_tri.len());
-    assert_ne!(tri_vtx[itri_ins].s[ied_ins], usize::MAX);
+    assert!(idx_tri_insert < tris.len());
+    assert!(idx_vtx_insert < vtx2tri.len());
+    assert_ne!(tris[idx_tri_insert].s[idx_triedge_insert], usize::MAX);
 
-    let itri_adj = tri_vtx[itri_ins].s[ied_ins];
-    let ied_adj = find_adjacent_edge_index(&tri_vtx[itri_ins], ied_ins, tri_vtx);
-    assert!(itri_adj < tri_vtx.len() && ied_ins < 3);
+    let itri_adj = tris[idx_tri_insert].s[idx_triedge_insert];
+    let ied_adj = find_adjacent_edge_index(&tris[idx_tri_insert], idx_triedge_insert, tris);
+    assert!(itri_adj < tris.len() && idx_triedge_insert < 3);
 
-    let itri0 = itri_ins;
+    let itri0 = idx_tri_insert;
     let itri1 = itri_adj;
-    let itri2 = tri_vtx.len();
-    let itri3 = tri_vtx.len() + 1;
+    let itri2 = tris.len();
+    let itri3 = tris.len() + 1;
 
-    tri_vtx.resize(tri_vtx.len() + 2, DynamicTriangle { v: [0; 3], s: [0; 3] });
+    tris.resize(tris.len() + 2, DynamicTriangle { v: [0; 3], s: [0; 3] });
 
-    let old_a = tri_vtx[itri_ins].clone();
-    let old_b = tri_vtx[itri_adj].clone();
+    let old_a = tris[idx_tri_insert].clone();
+    let old_b = tris[itri_adj].clone();
 
-    let ino_a0 = ied_ins;
-    let ino_a1 = (ied_ins + 1) % 3;
-    let ino_a2 = (ied_ins + 2) % 3;
+    let ino_a0 = idx_triedge_insert;
+    let ino_a1 = (idx_triedge_insert + 1) % 3;
+    let ino_a2 = (idx_triedge_insert + 2) % 3;
 
     let ino_b0 = ied_adj;
     let ino_b1 = (ied_adj + 1) % 3;
@@ -275,51 +283,51 @@ pub fn insert_point_on_elem_edge(
     assert_eq!(old_a.s[ino_a0], itri1);
     assert_eq!(old_b.s[ino_b0], itri0);
 
-    vtx_tri[ipo_ins].e = itri0;
-    vtx_tri[ipo_ins].d = 0;
-    vtx_tri[old_a.v[ino_a2]].e = itri0;
-    vtx_tri[old_a.v[ino_a2]].d = 1;
-    vtx_tri[old_a.v[ino_a0]].e = itri1;
-    vtx_tri[old_a.v[ino_a0]].d = 1;
-    vtx_tri[old_b.v[ino_b2]].e = itri2;
-    vtx_tri[old_b.v[ino_b2]].d = 1;
-    vtx_tri[old_b.v[ino_b0]].e = itri3;
-    vtx_tri[old_b.v[ino_b0]].d = 1;
+    vtx2tri[idx_vtx_insert].e = itri0;
+    vtx2tri[idx_vtx_insert].d = 0;
+    vtx2tri[old_a.v[ino_a2]].e = itri0;
+    vtx2tri[old_a.v[ino_a2]].d = 1;
+    vtx2tri[old_a.v[ino_a0]].e = itri1;
+    vtx2tri[old_a.v[ino_a0]].d = 1;
+    vtx2tri[old_b.v[ino_b2]].e = itri2;
+    vtx2tri[old_b.v[ino_b2]].d = 1;
+    vtx2tri[old_b.v[ino_b0]].e = itri3;
+    vtx2tri[old_b.v[ino_b0]].d = 1;
 
-    tri_vtx[itri0].v = [ipo_ins, old_a.v[ino_a2], old_a.v[ino_a0]];
-    tri_vtx[itri0].s = [old_a.s[ino_a1], itri1, itri3];
+    tris[itri0].v = [idx_vtx_insert, old_a.v[ino_a2], old_a.v[ino_a0]];
+    tris[itri0].s = [old_a.s[ino_a1], itri1, itri3];
     if old_a.s[ino_a1] != usize::MAX {
         let jt0 = old_a.s[ino_a1];
-        assert!(jt0 < tri_vtx.len());
-        let jno0 = find_adjacent_edge_index(&old_a, ino_a1, tri_vtx);
-        tri_vtx[jt0].s[jno0] = itri0;
+        assert!(jt0 < tris.len());
+        let jno0 = find_adjacent_edge_index(&old_a, ino_a1, tris);
+        tris[jt0].s[jno0] = itri0;
     }
 
-    tri_vtx[itri1].v = [ipo_ins, old_a.v[ino_a0], old_a.v[ino_a1]];
-    tri_vtx[itri1].s = [old_a.s[ino_a2], itri2, itri0];
+    tris[itri1].v = [idx_vtx_insert, old_a.v[ino_a0], old_a.v[ino_a1]];
+    tris[itri1].s = [old_a.s[ino_a2], itri2, itri0];
     if old_a.s[ino_a2] != usize::MAX {
         let jt0 = old_a.s[ino_a2];
-        assert!(jt0 < tri_vtx.len());
-        let jno0 = find_adjacent_edge_index(&old_a, ino_a2, tri_vtx);
-        tri_vtx[jt0].s[jno0] = itri1;
+        assert!(jt0 < tris.len());
+        let jno0 = find_adjacent_edge_index(&old_a, ino_a2, tris);
+        tris[jt0].s[jno0] = itri1;
     }
 
-    tri_vtx[itri2].v = [ipo_ins, old_b.v[ino_b2], old_b.v[ino_b0]];
-    tri_vtx[itri2].s = [old_b.s[ino_b1], itri3, itri1];
+    tris[itri2].v = [idx_vtx_insert, old_b.v[ino_b2], old_b.v[ino_b0]];
+    tris[itri2].s = [old_b.s[ino_b1], itri3, itri1];
     if old_b.s[ino_b1] != usize::MAX {
         let jt0 = old_b.s[ino_b1];
-        assert!(jt0 < tri_vtx.len());
-        let jno0 = find_adjacent_edge_index(&old_b, ino_b1, tri_vtx);
-        tri_vtx[jt0].s[jno0] = itri2;
+        assert!(jt0 < tris.len());
+        let jno0 = find_adjacent_edge_index(&old_b, ino_b1, tris);
+        tris[jt0].s[jno0] = itri2;
     }
 
-    tri_vtx[itri3].v = [ipo_ins, old_b.v[ino_b0], old_b.v[ino_b1]];
-    tri_vtx[itri3].s = [old_b.s[ino_b2], itri0, itri2];
+    tris[itri3].v = [idx_vtx_insert, old_b.v[ino_b0], old_b.v[ino_b1]];
+    tris[itri3].s = [old_b.s[ino_b2], itri0, itri2];
     if old_b.s[ino_b2] != usize::MAX {
         let jt0 = old_b.s[ino_b2];
-        assert!(jt0 < tri_vtx.len());
-        let jno0 = find_adjacent_edge_index(&old_b, ino_b2, tri_vtx);
-        tri_vtx[jt0].s[jno0] = itri3;
+        assert!(jt0 < tris.len());
+        let jno0 = find_adjacent_edge_index(&old_b, ino_b2, tris);
+        tris[jt0].s[jno0] = itri3;
     }
     return true;
 }
