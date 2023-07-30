@@ -3,81 +3,6 @@
 use num_traits::AsPrimitive;
 use crate::topology::{DynamicTriangle, DynamicVertex};
 
-fn bounding_box2<VEC>(
-    vtx_xy: &mut Vec<VEC>)
-    -> (VEC, VEC)
-    where VEC: Copy + std::ops::IndexMut<usize>,
-          <VEC as std::ops::Index<usize>>::Output: PartialOrd + Sized + Copy
-{
-    let (mut vmin, mut vmax) = (vtx_xy[0], vtx_xy[0]);
-    for ivtx in 1..vtx_xy.len() {
-        let xy = &vtx_xy[ivtx];
-        if xy[0] < vmin[0] { vmin[0] = xy[0]; }
-        if xy[0] > vmax[0] { vmax[0] = xy[0]; }
-        if xy[1] < vmin[1] { vmin[1] = xy[1]; }
-        if xy[1] > vmax[1] { vmax[1] = xy[1]; }
-    }
-    (vmin, vmax)
-}
-
-fn area_tri2<T>(
-    v1: &nalgebra::Vector2<T>,
-    v2: &nalgebra::Vector2<T>,
-    v3: &nalgebra::Vector2<T>) -> T
-    where T: num_traits::Float + 'static + Copy,
-          f64: num_traits::AsPrimitive<T>
-{
-    ((v2[0] - v1[0]) * (v3[1] - v1[1]) - (v3[0] - v1[0]) * (v2[1] - v1[1])) / 2_f64.as_()
-}
-
-fn squared_distance<T>(
-    v1: &nalgebra::Vector2<T>,
-    v2: &nalgebra::Vector2<T>) -> T
-    where T: num_traits::real::Real + 'static + Copy,
-{
-    (v1[0] - v2[0]) * (v1[0] - v2[0]) + (v1[1] - v2[1]) * (v1[1] - v2[1])
-}
-
-fn det_delaunay<T>(
-    p0: &nalgebra::Vector2<T>,
-    p1: &nalgebra::Vector2<T>,
-    p2: &nalgebra::Vector2<T>,
-    p3: &nalgebra::Vector2<T>) -> i32
-    where T: num_traits::Float + 'static + Copy,
-          f64: num_traits::AsPrimitive<T>
-{
-    let area = area_tri2(p0, p1, p2);
-    if area.abs() < 1.0e-10_f64.as_() {
-        return 3;
-    }
-    let tmp_val = 1_f64.as_() / (area * area * 16_f64.as_());
-
-    let dtmp0 = squared_distance(p1, p2);
-    let dtmp1 = squared_distance(p0, p2);
-    let dtmp2 = squared_distance(p0, p1);
-
-    let etmp0: T = tmp_val * dtmp0 * (dtmp1 + dtmp2 - dtmp0);
-    let etmp1: T = tmp_val * dtmp1 * (dtmp0 + dtmp2 - dtmp1);
-    let etmp2: T = tmp_val * dtmp2 * (dtmp0 + dtmp1 - dtmp2);
-
-    let out_center = nalgebra::Vector2::<T>::new(
-        etmp0 * p0[0] + etmp1 * p1[0] + etmp2 * p2[0],
-        etmp0 * p0[1] + etmp1 * p1[1] + etmp2 * p2[1]);
-
-    let qradius = squared_distance(&out_center, &p0);
-    let qdistance = squared_distance(&out_center, &p3);
-
-//	assert( fabs( qradius - SquareLength(out_center,p1) ) < 1.0e-10*qradius );
-//	assert( fabs( qradius - SquareLength(out_center,p2) ) < 1.0e-10*qradius );
-
-    let tol: T = 1.0e-20.as_();
-    return if qdistance > qradius * (1_f64.as_() + tol) { 2 }    // outside the circumcircle
-    else {
-        if qdistance < qradius * (1_f64.as_() - tol) { 0 }    // inside the circumcircle
-        else { 1 }    // on the circumcircle
-    };
-}
-
 // --------------------------------------------
 
 pub fn make_super_triangle<T>(
@@ -133,6 +58,10 @@ pub fn add_points_to_mesh<T>(
         find_adjacent_edge_index,
         insert_a_point_inside_an_element,
         insert_point_on_elem_edge,
+    };
+    use crate::geometry2::{
+        area_tri2,
+        det_delaunay
     };
 
     assert_eq!(vtx2xy.len(), vtx2tri.len());
@@ -211,6 +140,7 @@ pub fn delaunay_around_point<T>(
           f64: AsPrimitive<T>
 {
     use crate::topology::{find_adjacent_edge_index, flip_edge, move_ccw, move_cw};
+    use crate::geometry2::{det_delaunay};
     assert_eq!(vtx2xy.len(), vtx2tri.len());
     assert!(ipo0 < vtx2tri.len());
     if vtx2tri[ipo0].e == usize::MAX { return; }
@@ -278,27 +208,28 @@ pub fn delaunay_around_point<T>(
 }
 
 pub fn meshing_initialize(
-    tri_vtx: &mut Vec<DynamicTriangle>,
-    vtx_tri: &mut Vec<DynamicVertex>,
-    vtx_xy: &mut Vec<nalgebra::Vector2<f32>>) {
-    vtx_tri.clear();
-    vtx_tri.resize(vtx_xy.len(), DynamicVertex { e: usize::MAX, d: 0 });
+    tris: &mut Vec<DynamicTriangle>,
+    vtx2tri: &mut Vec<DynamicVertex>,
+    vtx2xy: &mut Vec<nalgebra::Vector2<f32>>) {
+    use crate::geometry2::bounding_box2;
+    vtx2tri.clear();
+    vtx2tri.resize(vtx2xy.len(), DynamicVertex { e: usize::MAX, d: 0 });
     {
-        let (vmin, vmax) = bounding_box2::<nalgebra::Vector2<f32>>(vtx_xy);
+        let (vmin, vmax) = bounding_box2::<nalgebra::Vector2<f32>>(vtx2xy);
         make_super_triangle(
-            tri_vtx, vtx_tri, vtx_xy,
+            tris, vtx2tri, vtx2xy,
             &[vmin[0], vmin[1]], &[vmax[0], vmax[1]]);
     }
     {
         const MIN_TRI_AREA: f32 = 1.0e-10;
-        for ip in 0..vtx_tri.len() - 3 {
+        for ip in 0..vtx2tri.len() - 3 {
             add_points_to_mesh(
-                tri_vtx, vtx_tri, vtx_xy,
+                tris, vtx2tri, vtx2xy,
                 ip,
                 MIN_TRI_AREA);
             delaunay_around_point(
                 ip,
-                vtx_tri, tri_vtx, vtx_xy);
+                vtx2tri, tris, vtx2xy);
         }
     }
 }
@@ -318,6 +249,7 @@ fn find_edge_point_across_edge<T>(
           f64: AsPrimitive<T>
 {
     use crate::topology::find_adjacent_edge_index;
+    use crate::geometry2::area_tri2;
     let itri_ini = vtx_tri[ipo0].e;
     let inotri_ini = vtx_tri[ipo0].d;
     let mut inotri_cur = inotri_ini;
@@ -416,6 +348,9 @@ pub fn enforce_edge<T>(
         flip_edge,
         find_edge_by_looking_around_point,
         find_adjacent_edge_index};
+    use crate::geometry2::{
+        area_tri2
+    };
     assert!(i0_vtx < vtx2tri.len());
     assert!(i1_vtx < vtx2tri.len());
     loop {
@@ -535,8 +470,6 @@ pub fn meshing_single_connected_shape2(
     loop_vtx: &Vec<usize>)
 {
     use crate::topology::{
-        assert_dynamic_triangle_mesh,
-        assert_dynamic_triangles,
         find_edge_by_looking_all_triangles,
         flag_connected,
         delete_tri_flag,
@@ -549,11 +482,7 @@ pub fn meshing_single_connected_shape2(
         point_idx_to_delete.push(npo + 2);
     }
     meshing_initialize(tri_vtx, vtx_tri, vtx_xy);
-    #[cfg(debug_assertions)]
-        {
-            assert_dynamic_triangles(&tri_vtx);
-            assert_dynamic_triangle_mesh(&vtx_tri, &tri_vtx);
-        }
+    debug_assert!(crate::topology::check_dynamic_triangle_mesh_topology(&vtx_tri, &tri_vtx));
     for iloop in 0..loop_vtx_idx.len() - 1 {
         let nvtx = loop_vtx_idx[iloop + 1] - loop_vtx_idx[iloop];
         for iivtx in loop_vtx_idx[iloop]..loop_vtx_idx[iloop + 1] {
@@ -579,11 +508,8 @@ pub fn meshing_single_connected_shape2(
     delete_unreferenced_points(
         vtx_xy, vtx_tri, tri_vtx,
         &point_idx_to_delete);
-    #[cfg(debug_assertions)]
-        {
-            assert_dynamic_triangles(&tri_vtx);
-            assert_dynamic_triangle_mesh(&vtx_tri, &tri_vtx);
-        }
+    debug_assert!(
+        crate::topology::check_dynamic_triangle_mesh_topology(&vtx_tri, &tri_vtx));
 }
 
 fn laplacian_mesh_smoothing_around_point<T>(
@@ -627,6 +553,7 @@ pub fn meshing_inside<T>(
           usize: AsPrimitive<T>
 {
     use crate::topology::insert_a_point_inside_an_element;
+    use crate::geometry2::area_tri2;
     assert_eq!(vtx2xy.len(), vtx2tri.len());
     assert_eq!(vtx2flag.len(), vtx2tri.len());
     assert_eq!(tri2flag.len(), tris.len());
@@ -684,10 +611,7 @@ pub fn meshing_inside<T>(
 
 #[test]
 fn test_square() {
-    use crate::topology::{
-        assert_dynamic_triangle_mesh,
-        assert_dynamic_triangles,
-    };
+    use crate::topology::check_dynamic_triangle_mesh_topology;
     let loop2idx = vec!(0, 4);
     let idx2vtx = vec!(0, 1, 2, 3);
     type Vec2 = nalgebra::Vector2<f32>;
@@ -703,8 +627,7 @@ fn test_square() {
     meshing_single_connected_shape2(
         &mut pnt2tri, &mut vtx2xy, &mut tri2pnt,
         &loop2idx, &idx2vtx);
-    assert_dynamic_triangles(&tri2pnt);
-    assert_dynamic_triangle_mesh(&pnt2tri, &tri2pnt);
+    check_dynamic_triangle_mesh_topology(&pnt2tri, &tri2pnt);
     assert_eq!(pnt2tri.len(), 4);
     assert_eq!(vtx2xy.len(), 4);
     assert_eq!(tri2pnt.len(), 2);

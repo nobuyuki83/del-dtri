@@ -34,7 +34,7 @@ pub fn find_adjacent_edge_index(
 }
 
 
-pub fn assert_dynamic_triangles(
+pub fn check_dynamic_triangles(
     tris: &Vec<DynamicTriangle>) -> bool {
     let ntri = tris.len();
     for itri in 0..ntri {
@@ -66,10 +66,11 @@ pub fn assert_dynamic_triangles(
     true
 }
 
-pub fn assert_dynamic_triangle_mesh(
+pub fn check_dynamic_triangle_mesh_topology(
     vtx2tri: &Vec<DynamicVertex>,
     tris: &Vec<DynamicTriangle>) -> bool
 {
+    assert!( crate::topology::check_dynamic_triangles(&tris) );
     let npo = vtx2tri.len();
     let ntri = tris.len();
     for itri in 0..ntri {
