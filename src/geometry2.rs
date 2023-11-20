@@ -1,14 +1,13 @@
 use num_traits::AsPrimitive;
 
 pub fn bounding_box2<VEC>(
-    vtx_xy: &mut Vec<VEC>)
+    vtx_xy: &mut [VEC])
     -> (VEC, VEC)
     where VEC: Copy + std::ops::IndexMut<usize>,
           <VEC as std::ops::Index<usize>>::Output: PartialOrd + Sized + Copy
 {
     let (mut vmin, mut vmax) = (vtx_xy[0], vtx_xy[0]);
-    for ivtx in 1..vtx_xy.len() {
-        let xy = &vtx_xy[ivtx];
+    for xy in vtx_xy.iter().skip(1) {
         if xy[0] < vmin[0] { vmin[0] = xy[0]; }
         if xy[0] > vmax[0] { vmax[0] = xy[0]; }
         if xy[1] < vmin[1] { vmin[1] = xy[1]; }
@@ -61,16 +60,14 @@ pub fn det_delaunay<T>(
         etmp0 * p0[0] + etmp1 * p1[0] + etmp2 * p2[0],
         etmp0 * p0[1] + etmp1 * p1[1] + etmp2 * p2[1]);
 
-    let qradius = squared_distance(&out_center, &p0);
-    let qdistance = squared_distance(&out_center, &p3);
+    let qradius = squared_distance(&out_center, p0);
+    let qdistance = squared_distance(&out_center, p3);
 
 //	assert( fabs( qradius - SquareLength(out_center,p1) ) < 1.0e-10*qradius );
 //	assert( fabs( qradius - SquareLength(out_center,p2) ) < 1.0e-10*qradius );
 
     let tol: T = 1.0e-20.as_();
-    return if qdistance > qradius * (1_f64.as_() + tol) { 2 }    // outside the circumcircle
-    else {
-        if qdistance < qradius * (1_f64.as_() - tol) { 0 }    // inside the circumcircle
-        else { 1 }    // on the circumcircle
-    };
+    if qdistance > qradius * (1_f64.as_() + tol) { 2 }    // outside the circumcircle
+    else if qdistance < qradius * (1_f64.as_() - tol) { 0 }    // inside the circumcircle
+    else { 1 }    // on the circumcircle
 }

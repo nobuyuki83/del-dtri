@@ -61,7 +61,7 @@ pub fn add_points_to_mesh<T>(
     };
     use crate::geometry2::{
         area_tri2,
-        det_delaunay
+        det_delaunay,
     };
 
     assert_eq!(vtx2xy.len(), vtx2tri.len());
@@ -155,7 +155,7 @@ pub fn delaunay_around_point<T>(
         assert!(itri0 < tris.len() && ino0 < 3 && tris[itri0].v[ino0] == ipo0);
         if tris[itri0].s[ino0] < tris.len() {
             let jtri0 = tris[itri0].s[ino0];
-            let jno0 = find_adjacent_edge_index(&tris[itri0], ino0, &tris);
+            let jno0 = find_adjacent_edge_index(&tris[itri0], ino0, tris);
             assert_eq!(tris[jtri0].s[jno0], itri0);
             let jpo0 = tris[jtri0].v[jno0];
             let ires = det_delaunay(
@@ -187,7 +187,7 @@ pub fn delaunay_around_point<T>(
         assert!(itri0 < tris.len() && ino0 < 3 && tris[itri0].v[ino0] == ipo0);
         if tris[itri0].s[ino0] < tris.len() {
             let jtri0 = tris[itri0].s[ino0];
-            let jno0 = find_adjacent_edge_index(&tris[itri0], ino0, &tris);
+            let jno0 = find_adjacent_edge_index(&tris[itri0], ino0, tris);
             assert_eq!(tris[jtri0].s[jno0], itri0);
             let ipo_dia = tris[jtri0].v[jno0];
             let ires = det_delaunay(
@@ -242,10 +242,10 @@ fn find_edge_point_across_edge<T>(
     ratio: &mut T,
     ipo0: usize,
     ipo1: usize,
-    vtx_tri: &Vec<DynamicVertex>,
-    tri_vtx: &Vec<DynamicTriangle>,
-    vtx_xy: &Vec<nalgebra::Vector2<T>>) -> bool
-    where T: num_traits::Float + 'static + Copy,
+    vtx_tri: &[DynamicVertex],
+    tri_vtx: &[DynamicTriangle],
+    vtx_xy: &[nalgebra::Vector2<T>]) -> bool
+    where T: num_traits::Float + 'static + Copy + std::fmt::Debug,
           f64: AsPrimitive<T>
 {
     use crate::topology::find_adjacent_edge_index;
@@ -262,11 +262,12 @@ fn find_edge_point_across_edge<T>(
             let area0 = area_tri2(&vtx_xy[ipo0],
                                   &vtx_xy[tri_vtx[itri_cur].v[inotri2]],
                                   &vtx_xy[ipo1]);
-            if area0 > -1.0e-20_f64.as_() {
+            if area0 > -(1.0e-20_f64.as_()) {
                 let area1 = area_tri2(&vtx_xy[ipo0],
                                       &vtx_xy[ipo1],
                                       &vtx_xy[tri_vtx[itri_cur].v[inotri3]]);
-                if area1 > -1.0e-20_f64.as_() {
+                if area1 > -(1.0e-20_f64.as_()) {
+                    dbg!(area0,area1);
                     assert!(area0 + area1 > 1.0e-20_f64.as_());
                     *ratio = area0 / (area0 + area1);
                     *itri0 = itri_cur;
@@ -280,7 +281,8 @@ fn find_edge_point_across_edge<T>(
             let inotri2 = (inotri_cur + 1) % 3;
             let itri_nex = tri_vtx[itri_cur].s[inotri2];
             if itri_nex == usize::MAX { break; }
-            let jnob = find_adjacent_edge_index(&tri_vtx[itri_nex], inotri2, tri_vtx);
+            let jnob = find_adjacent_edge_index(
+                &tri_vtx[itri_nex], inotri2, tri_vtx);
             let inotri3 = (jnob + 1) % 3;
             assert!(itri_nex < tri_vtx.len());
             assert_eq!(tri_vtx[itri_nex].v[inotri3], ipo0);
@@ -306,11 +308,11 @@ fn find_edge_point_across_edge<T>(
             let area0 = area_tri2(&vtx_xy[ipo0],
                                   &vtx_xy[tri_vtx[itri_cur].v[inotri2]],
                                   &vtx_xy[ipo1]);
-            if area0 > -1.0e-20_f64.as_() {
+            if area0 > -(1.0e-20_f64.as_()) {
                 let area1 = area_tri2(&vtx_xy[ipo0],
                                       &vtx_xy[ipo1],
                                       &vtx_xy[tri_vtx[itri_cur].v[inotri3]]);
-                if area1 > -1.0e-20_f64.as_() {
+                if area1 > -(1.0e-20_f64.as_()) {
                     assert!(area0 + area1 > 1.0e-20_f64.as_());
                     *ratio = area0 / (area0 + area1);
                     *itri0 = itri_cur;
@@ -323,7 +325,7 @@ fn find_edge_point_across_edge<T>(
         {
             let inotri2 = (inotri_cur + 2) % 3;
             let itri_nex = tri_vtx[itri_cur].s[inotri2];
-            let jnob = find_adjacent_edge_index(&tri_vtx[itri_cur], inotri2, &tri_vtx);
+            let jnob = find_adjacent_edge_index(&tri_vtx[itri_cur], inotri2, tri_vtx);
             let inotri3 = (jnob + 1) % 3;
             assert_eq!(tri_vtx[itri_nex].v[inotri3], ipo0);
             if itri_nex == itri_ini {
@@ -340,8 +342,8 @@ pub fn enforce_edge<T>(
     tris: &mut Vec<DynamicTriangle>,
     i0_vtx: usize,
     i1_vtx: usize,
-    vtx2xy: &Vec<nalgebra::Vector2<T>>)
-    where T: num_traits::Float + 'static + Copy,
+    vtx2xy: &[nalgebra::Vector2<T>])
+    where T: num_traits::Float + 'static + Copy + std::fmt::Debug,
           f64: AsPrimitive<T>
 {
     use crate::topology::{
@@ -360,7 +362,7 @@ pub fn enforce_edge<T>(
         if find_edge_by_looking_around_point(
             &mut itri0, &mut inotri0, &mut inotri1,
             i0_vtx, i1_vtx,
-            &vtx2tri, &tris) { // this edge divide outside and inside
+            vtx2tri, tris) { // this edge divide outside and inside
             assert_ne!(inotri0, inotri1);
             assert!(inotri0 < 3);
             assert!(inotri1 < 3);
@@ -369,7 +371,7 @@ pub fn enforce_edge<T>(
             let ied0 = 3 - inotri0 - inotri1;
             {
                 let itri1 = tris[itri0].s[ied0];
-                let ied1 = find_adjacent_edge_index(&tris[itri0], ied0, &tris);
+                let ied1 = find_adjacent_edge_index(&tris[itri0], ied0, tris);
                 assert_eq!(tris[itri1].s[ied1], itri0);
                 tris[itri1].s[ied1] = usize::MAX;
                 tris[itri0].s[ied0] = usize::MAX;
@@ -380,12 +382,12 @@ pub fn enforce_edge<T>(
             if !find_edge_point_across_edge(
                 &mut itri0, &mut inotri0, &mut inotri1, &mut ratio,
                 i0_vtx, i1_vtx,
-                &vtx2tri, &tris, &vtx2xy) { panic!(); }
-            assert!(ratio > -1.0e-20_f64.as_() && ratio < 1_f64.as_() + 1.0e-20_f64.as_());
+                vtx2tri, tris, vtx2xy) { panic!(); }
+            assert!(ratio > -(1.0e-20_f64.as_()) && ratio < 1_f64.as_() + 1.0e-20_f64.as_());
             assert!(area_tri2(&vtx2xy[i0_vtx], &vtx2xy[tris[itri0].v[inotri0]], &vtx2xy[i1_vtx]) > 1.0e-20_f64.as_());
             assert!(area_tri2(&vtx2xy[i0_vtx], &vtx2xy[i1_vtx], &vtx2xy[tris[itri0].v[inotri1]]) > 1.0e-20_f64.as_());
 //            std::cout << ratio << std::endl;
-            if ratio < 1.0e-20_f64.as_() {
+            if ratio < 1.0e-20_f64.as_(){
                 panic!();
             } else if ratio > 1.0_f64.as_() - 1.0e-10_f64.as_() {
                 panic!();
@@ -418,7 +420,7 @@ pub fn enforce_edge<T>(
 pub fn delete_unreferenced_points(
     vtx_xy: &mut Vec<nalgebra::Vector2<f32>>,
     vtx_tri: &mut Vec<DynamicVertex>,
-    tri_vtx: &mut Vec<DynamicTriangle>,
+    tri_vtx: &mut [DynamicTriangle],
     point_idxs_to_delete: &Vec<usize>) {
     assert_eq!(vtx_tri.len(), vtx_xy.len());
     let mut map_po_del = Vec::<usize>::new();
@@ -451,11 +453,11 @@ pub fn delete_unreferenced_points(
             vtx_xy[ipo1] = vtx_xy_tmp[ipo].clone();
         }
     }
-    for itri in 0..tri_vtx.len() {
+    for (itri,tri) in tri_vtx.iter_mut().enumerate() {
         for ifatri in 0..3 {
-            let ipo = tri_vtx[itri].v[ifatri];
+            let ipo = tri.v[ifatri];
             assert_ne!(map_po_del[ipo], usize::MAX);
-            tri_vtx[itri].v[ifatri] = map_po_del[ipo];
+            tri.v[ifatri] = map_po_del[ipo];
             vtx_tri[ipo].e = itri;
             vtx_tri[ipo].d = ifatri;
         }
@@ -466,8 +468,8 @@ pub fn meshing_single_connected_shape2(
     vtx_tri: &mut Vec<DynamicVertex>,
     vtx_xy: &mut Vec<nalgebra::Vector2<f32>>,
     tri_vtx: &mut Vec<DynamicTriangle>,
-    loop_vtx_idx: &Vec<usize>,
-    loop_vtx: &Vec<usize>)
+    loop_vtx_idx: &[usize],
+    loop_vtx: &[usize])
 {
     use crate::topology::{
         find_edge_by_looking_all_triangles,
@@ -482,14 +484,14 @@ pub fn meshing_single_connected_shape2(
         point_idx_to_delete.push(npo + 2);
     }
     meshing_initialize(tri_vtx, vtx_tri, vtx_xy);
-    debug_assert!(crate::topology::check_dynamic_triangle_mesh_topology(&vtx_tri, &tri_vtx));
+    debug_assert!(crate::topology::check_dynamic_triangle_mesh_topology(vtx_tri, tri_vtx));
     for iloop in 0..loop_vtx_idx.len() - 1 {
         let nvtx = loop_vtx_idx[iloop + 1] - loop_vtx_idx[iloop];
         for iivtx in loop_vtx_idx[iloop]..loop_vtx_idx[iloop + 1] {
             let ivtx0 = loop_vtx[loop_vtx_idx[iloop] + (iivtx + 0) % nvtx];
             let ivtx1 = loop_vtx[loop_vtx_idx[iloop] + (iivtx + 1) % nvtx];
             enforce_edge(vtx_tri, tri_vtx,
-                         ivtx0, ivtx1, &vtx_xy);
+                         ivtx0, ivtx1, vtx_xy);
         }
     }
     {
@@ -498,18 +500,18 @@ pub fn meshing_single_connected_shape2(
         let mut iedtri = 0;
         find_edge_by_looking_all_triangles(
             &mut itri0_ker, &mut iedtri,
-            loop_vtx[0], loop_vtx[1], &tri_vtx);
+            loop_vtx[0], loop_vtx[1], tri_vtx);
         assert!(itri0_ker < tri_vtx.len());
         flag_connected(
             &mut aflg,
-            &tri_vtx, itri0_ker, 1);
+            tri_vtx, itri0_ker, 1);
         delete_tri_flag(tri_vtx, &mut aflg, 0);
     }
     delete_unreferenced_points(
         vtx_xy, vtx_tri, tri_vtx,
         &point_idx_to_delete);
     debug_assert!(
-        crate::topology::check_dynamic_triangle_mesh_topology(&vtx_tri, &tri_vtx));
+        crate::topology::check_dynamic_triangle_mesh_topology(vtx_tri, tri_vtx));
 }
 
 fn laplacian_mesh_smoothing_around_point<T>(
@@ -525,7 +527,7 @@ fn laplacian_mesh_smoothing_around_point<T>(
     assert_eq!(vtx_xy.len(), vtx_tri.len());
     let mut itri0 = vtx_tri[ipoin].e;
     let mut ino0 = vtx_tri[ipoin].d;
-    let mut vec_delta = vtx_xy[ipoin].clone();
+    let mut vec_delta = vtx_xy[ipoin];
     let mut ntri_around: usize = 1;
     loop { // counter-clock wise
         assert!(itri0 < tri_vtx.len() && ino0 < 3 && tri_vtx[itri0].v[ino0] == ipoin);
@@ -535,7 +537,7 @@ fn laplacian_mesh_smoothing_around_point<T>(
         if itri0 == vtx_tri[ipoin].e { break; }
     }
     vtx_xy[ipoin] = vec_delta / ntri_around.as_();
-    return true;
+    true
 }
 
 pub fn meshing_inside<T>(
@@ -547,7 +549,7 @@ pub fn meshing_inside<T>(
     num_vtx_fix: usize,
     nflgpnt_offset: usize,
     target_len: T)
-    where T: num_traits::Float + std::ops::AddAssign + std::ops::DivAssign + std::ops::MulAssign<f64> +
+    where T: num_traits::Float + std::ops::AddAssign + std::ops::DivAssign + std::ops::MulAssign +
     'static + std::fmt::Debug + std::default::Default,
           f64: AsPrimitive<T>,
           usize: AsPrimitive<T>
@@ -558,7 +560,7 @@ pub fn meshing_inside<T>(
     assert_eq!(vtx2flag.len(), vtx2tri.len());
     assert_eq!(tri2flag.len(), tris.len());
 
-    let mut ratio = 3_f64.as_();
+    let mut ratio: T = 3_f64.as_();
     loop {
         let mut nadd = 0;
         for itri in 0..tris.len() {
@@ -590,7 +592,7 @@ pub fn meshing_inside<T>(
                 ip,
                 vtx2tri, tris);
         }
-        if nadd != 0 { ratio *= 0.8; } else { ratio *= 0.5; }
+        if nadd != 0 { ratio *= 0.8_f64.as_(); } else { ratio *= 0.5_f64.as_(); }
         if ratio < 0.65.as_() {
             break;
         }

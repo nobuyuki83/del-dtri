@@ -28,3 +28,17 @@ pub fn array_from_2d_dynamic_triangle_mesh(
     };
     (tri2vtx, vtx2xy)
 }
+
+pub fn area_of_triangles(
+    dtris: &Vec<DynamicTriangle>,
+    dvtxs: &[nalgebra::Vector2<f64>]) -> Vec<f64> {
+    let mut areas = Vec::<f64>::new();
+    areas.reserve(dtris.len());
+    for tri in dtris {
+        let p0 = &dvtxs[tri.v[0]];
+        let p1 = &dvtxs[tri.v[1]];
+        let p2 = &dvtxs[tri.v[2]];
+        areas.push(crate::geometry2::area_tri2(p0,p1,p2));
+    }
+    areas
+}

@@ -21,7 +21,7 @@ impl Default for DynamicVertex {
 pub fn find_adjacent_edge_index(
     t0: &DynamicTriangle,
     ied0: usize,
-    tri_vtx: &Vec<DynamicTriangle>) -> usize {
+    tri_vtx: &[DynamicTriangle]) -> usize {
     let iv0 = t0.v[(ied0 + 1) % 3];
     let iv1 = t0.v[(ied0 + 2) % 3];
     assert_ne!(iv0, iv1);
@@ -35,7 +35,7 @@ pub fn find_adjacent_edge_index(
 
 
 pub fn check_dynamic_triangles(
-    tris: &Vec<DynamicTriangle>) -> bool {
+    tris: &[DynamicTriangle]) -> bool {
     let ntri = tris.len();
     for itri in 0..ntri {
         let tri = &tris[itri];
@@ -57,7 +57,7 @@ pub fn check_dynamic_triangles(
             assert!(tri.s[iedtri] < tris.len());
             let jtri = tri.s[iedtri];
             assert!(jtri < ntri);
-            let jno = find_adjacent_edge_index(&tris[itri], iedtri, &tris);
+            let jno = find_adjacent_edge_index(&tris[itri], iedtri, tris);
             assert_eq!(tris[jtri].s[jno], itri);
             assert_eq!(tris[itri].v[(iedtri + 1) % 3], tris[jtri].v[(jno + 2) % 3]);
             assert_eq!(tris[itri].v[(iedtri + 2) % 3], tris[jtri].v[(jno + 1) % 3]);
@@ -70,19 +70,18 @@ pub fn check_dynamic_triangle_mesh_topology(
     vtx2tri: &Vec<DynamicVertex>,
     tris: &Vec<DynamicTriangle>) -> bool
 {
-    assert!( crate::topology::check_dynamic_triangles(&tris) );
+    assert!( crate::topology::check_dynamic_triangles(tris) );
     let npo = vtx2tri.len();
-    let ntri = tris.len();
-    for itri in 0..ntri {
-        assert!(tris[itri].v[0] < npo);
-        assert!(tris[itri].v[0] < npo);
-        assert!(tris[itri].v[0] < npo);
+    for tri in tris.iter() {
+        assert!(tri.v[0] < npo);
+        assert!(tri.v[0] < npo);
+        assert!(tri.v[0] < npo);
     }
-    for ipoin in 0..npo {
-        let itri0 = vtx2tri[ipoin].e;
-        let inoel0 = vtx2tri[ipoin].d;
+    for (ivtx,vtx) in vtx2tri.iter().enumerate() {
+        let itri0 = vtx.e;
+        let inoel0 = vtx.d;
         if itri0 != usize::MAX {
-            assert!(itri0 < tris.len() && inoel0 < 3 && tris[itri0].v[inoel0] == ipoin);
+            assert!(itri0 < tris.len() && inoel0 < 3 && tris[itri0].v[inoel0] == ivtx);
         }
     }
     true
@@ -92,8 +91,8 @@ pub fn check_dynamic_triangle_mesh_topology(
 pub fn flip_edge(
     itri_a: usize,
     ied0: usize,
-    vtx2tri: &mut Vec<DynamicVertex>,
-    tris: &mut Vec<DynamicTriangle>) -> bool {
+    vtx2tri: &mut [DynamicVertex],
+    tris: &mut [DynamicTriangle]) -> bool {
     assert!(itri_a < tris.len() && ied0 < 3);
     if tris[itri_a].s[ied0] == usize::MAX { return false; }
 
@@ -131,13 +130,13 @@ pub fn flip_edge(
     if old_a.s[no_a2] != usize::MAX {
         let jt0 = old_a.s[no_a2];
         assert!(jt0 < tris.len() && jt0 != itri_b && jt0 != itri_a);
-        let jno0 = find_adjacent_edge_index(&old_a, no_a2, &tris);
+        let jno0 = find_adjacent_edge_index(&old_a, no_a2, tris);
         tris[jt0].s[jno0] = itri_a;
     }
     if old_b.s[no_b1] != usize::MAX {
         let jt0 = old_b.s[no_b1];
         assert!(jt0 < tris.len() && jt0 != itri_b && jt0 != itri_a);
-        let jno0 = find_adjacent_edge_index(&old_b, no_b1, &tris);
+        let jno0 = find_adjacent_edge_index(&old_b, no_b1, tris);
         tris[jt0].s[jno0] = itri_a;
     }
 
@@ -146,23 +145,23 @@ pub fn flip_edge(
     if old_b.s[no_b2] != usize::MAX {
         let jt0 = old_b.s[no_b2];
         assert!(jt0 < tris.len());
-        let jno0 = find_adjacent_edge_index(&old_b, no_b2, &tris);
+        let jno0 = find_adjacent_edge_index(&old_b, no_b2, tris);
         tris[jt0].s[jno0] = itri_b;
     }
     if old_a.s[no_a1] != usize::MAX {
         let jt0 = old_a.s[no_a1];
         assert!(jt0 < tris.len());
-        let jno0 = find_adjacent_edge_index(&old_a, no_a1, &tris);
+        let jno0 = find_adjacent_edge_index(&old_a, no_a1, tris);
         tris[jt0].s[jno0] = itri_b;
     }
-    return true;
+    true
 }
 
 pub fn move_ccw(
     itri_cur: &mut usize,
     inotri_cur: &mut usize,
     itri_adj: usize,
-    tri_vtx: &Vec<DynamicTriangle>) -> bool {
+    tri_vtx: &[DynamicTriangle]) -> bool {
     let inotri1 = (*inotri_cur + 1) % 3;
     if tri_vtx[*itri_cur].s[inotri1] == itri_adj { return false; }
     let itri_nex = tri_vtx[*itri_cur].s[inotri1];
@@ -172,24 +171,24 @@ pub fn move_ccw(
     assert_eq!(tri_vtx[*itri_cur].v[*inotri_cur], tri_vtx[itri_nex].v[inotri_nex]);
     *itri_cur = itri_nex;
     *inotri_cur = inotri_nex;
-    return true;
+    true
 }
 
 pub fn move_cw(
     itri_cur: &mut usize,
     inotri_cur: &mut usize,
     itri_adj: usize,
-    tri_vtx: &Vec<DynamicTriangle>) -> bool {
+    tri_vtx: &[DynamicTriangle]) -> bool {
     let inotri1 = (*inotri_cur + 2) % 3;
     if tri_vtx[*itri_cur].s[inotri1] == itri_adj { return false; }
     let itri_nex = tri_vtx[*itri_cur].s[inotri1];
     assert!(itri_nex < tri_vtx.len());
-    let ino2 = find_adjacent_edge_index(&tri_vtx[*itri_cur], inotri1, &tri_vtx);
+    let ino2 = find_adjacent_edge_index(&tri_vtx[*itri_cur], inotri1, tri_vtx);
     let inotri_nex = (ino2 + 2) % 3;
     assert_eq!(tri_vtx[*itri_cur].v[*inotri_cur], tri_vtx[itri_nex].v[inotri_nex]);
     *itri_cur = itri_nex;
     *inotri_cur = inotri_nex;
-    return true;
+    true
 }
 
 pub fn insert_a_point_inside_an_element(
@@ -222,7 +221,7 @@ pub fn insert_a_point_inside_an_element(
     if old.s[0] != usize::MAX {
         let jt0 = old.s[0];
         assert!(jt0 < tris.len());
-        let jno0 = find_adjacent_edge_index(&old, 0, &tris);
+        let jno0 = find_adjacent_edge_index(&old, 0, tris);
         tris[jt0].s[jno0] = it_a;
     }
 
@@ -231,7 +230,7 @@ pub fn insert_a_point_inside_an_element(
     if old.s[1] != usize::MAX {
         let jt0 = old.s[1];
         assert!(jt0 < tris.len());
-        let jno0 = find_adjacent_edge_index(&old, 1, &tris);
+        let jno0 = find_adjacent_edge_index(&old, 1, tris);
         tris[jt0].s[jno0] = it_b;
     }
 
@@ -240,10 +239,10 @@ pub fn insert_a_point_inside_an_element(
     if old.s[2] != usize::MAX {
         let jt0 = old.s[2];
         assert!(jt0 < tris.len());
-        let jno0 = find_adjacent_edge_index(&old, 2, &tris);
+        let jno0 = find_adjacent_edge_index(&old, 2, tris);
         tris[jt0].s[jno0] = it_c;
     }
-    return true;
+    true
 }
 
 pub fn insert_point_on_elem_edge(
@@ -330,7 +329,7 @@ pub fn insert_point_on_elem_edge(
         let jno0 = find_adjacent_edge_index(&old_b, ino_b2, tris);
         tris[jt0].s[jno0] = itri3;
     }
-    return true;
+    true
 }
 
 
@@ -340,8 +339,8 @@ pub fn find_edge_by_looking_around_point(
     inotri1: &mut usize,
     ipo0: usize,
     ipo1: usize,
-    vtx_tri: &Vec<DynamicVertex>,
-    tri_vtx: &Vec<DynamicTriangle>) -> bool
+    vtx_tri: &[DynamicVertex],
+    tri_vtx: &[DynamicTriangle]) -> bool
 {
     let mut itc = vtx_tri[ipo0].e;
     let mut inc = vtx_tri[ipo0].d;
@@ -387,7 +386,7 @@ pub fn find_edge_by_looking_around_point(
             return true;
         }
     }
-    return false;
+    false
 }
 
 pub fn find_edge_by_looking_all_triangles(
@@ -395,12 +394,12 @@ pub fn find_edge_by_looking_all_triangles(
     iedtri0: &mut usize,
     ipo0: usize,
     ipo1: usize,
-    tri_vtx: &Vec<DynamicTriangle>)
+    tri_vtx: &[DynamicTriangle])
 {
-    for itri in 0..tri_vtx.len() {
+    for (itri,tri) in tri_vtx.iter().enumerate() {
         for iedtri in 0..3 {
-            let jpo0 = tri_vtx[itri].v[(iedtri + 0) % 3];
-            let jpo1 = tri_vtx[itri].v[(iedtri + 1) % 3];
+            let jpo0 = tri.v[(iedtri + 0) % 3];
+            let jpo1 = tri.v[(iedtri + 1) % 3];
             if jpo0 == ipo0 && jpo1 == ipo1 {
                 *itri0 = itri;
                 *iedtri0 = iedtri;
