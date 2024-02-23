@@ -389,6 +389,7 @@ pub fn find_edge_by_looking_around_point(
     false
 }
 
+#[allow(clippy::identity_op)]
 pub fn find_edge_by_looking_all_triangles(
     itri0: &mut usize,
     iedtri0: &mut usize,
